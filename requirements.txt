@@ -1,9 +1,5 @@
-
-
-
-
 # ==============================================================================
-# Nigerian TTS API - Production Requirements
+# Nigerian TTS API - Railway Compatible Requirements
 # Version: 1.0.0
 # Python: >=3.9,<3.12
 # ==============================================================================
@@ -13,13 +9,13 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# Machine Learning & AI
-torch==2.7.0
-torchaudio==2.7.0
+# Machine Learning & AI (Compatible versions)
+torch==2.1.0
+torchaudio==2.1.0
 transformers==4.35.2
 huggingface-hub==0.17.3
 
-# Data Validation & Configuration
+# Data Validation & Configuration (Compatible versions)
 pydantic==2.5.0
 pydantic-settings==2.0.3
 typing-extensions==4.8.0
@@ -40,28 +36,8 @@ aiofiles==23.2.0
 orjson==3.9.10
 
 # ==============================================================================
-# External Dependencies (Manual Installation Required)
+# Installation Notes for Railway
 # ==============================================================================
-# yarngpt - Custom Audio Tokenizer
-# Installation: pip install git+https://github.com/yarngpt/yarngpt.git
-
-# ==============================================================================
-# Platform-Specific Installation Commands
-# ==============================================================================
-# 
-# CPU-Only Deployment:
-# pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-# pip install -r requirements.txt
-# 
-# GPU Deployment (CUDA 11.8):
-# pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-# pip install -r requirements.txt
-# 
-# Production Container:
-# pip install --no-cache-dir -r requirements.txt
-# 
-# Development Environment:
-# pip install -r requirements.txt
-# pip install -r requirements-dev.txt
-# 
+# PyTorch will be installed with CPU support by default
+# YarnGPT must be installed separately in Dockerfile
 # ==============================================================================
