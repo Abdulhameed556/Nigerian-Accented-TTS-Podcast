@@ -6,9 +6,22 @@ import torch
 import torchaudio
 import base64
 from transformers import AutoModelForCausalLM
-from yarngpt.audiotokenizer import AudioTokenizerV2
 from datetime import datetime
 import tempfile
+import numpy as np
+import io
+import wave
+
+# Try to import YarnGPT, fall back to None if not available
+try:
+    from yarngpt.audiotokenizer import AudioTokenizerV2
+    YARNGPT_AVAILABLE = True
+    print("✅ YarnGPT imported successfully")
+except ImportError as e:
+    print(f"⚠️  YarnGPT not available: {e}")
+    print("🧪 Running in TESTING mode")
+    AudioTokenizerV2 = None
+    YARNGPT_AVAILABLE = False
 
 # Import from your other files
 from app.config import settings
@@ -44,8 +57,8 @@ model = None
 # Initialize file manager
 audio_manager = AudioFileManager()
 
-# Testing mode check
-TESTING_MODE = os.getenv("TESTING_MODE", "false").lower() == "true"
+# Testing mode check - True if YarnGPT not available OR explicitly set
+TESTING_MODE = not YARNGPT_AVAILABLE or os.getenv("TESTING_MODE", "false").lower() == "true"
 
 async def download_model_if_needed():
     """Download model files if they don't exist and URLs are provided"""
@@ -118,17 +131,14 @@ async def load_models():
         
     except Exception as e:
         print(f"❌ Error loading models: {str(e)}")
+        print("🧪 Falling back to TESTING mode")
         return False
 
 def create_mock_audio() -> bytes:
     """Create mock audio for testing mode"""
     # Create a simple sine wave as mock audio
-    import numpy as np
-    import io
-    import wave
-    
     # Generate 2 seconds of sine wave
-    sample_rate = settings.SAMPLE_RATE
+    sample_rate = getattr(settings, 'SAMPLE_RATE', 24000)
     duration = 2.0
     frequency = 440  # A4 note
     
@@ -156,6 +166,7 @@ async def startup_event():
     success = await load_models()
     if TESTING_MODE:
         print(f"🚀 Starting {settings.API_NAME} in TESTING mode")
+        print(f"🧪 YarnGPT Available: {YARNGPT_AVAILABLE}")
     else:
         print(f"🚀 Starting {settings.API_NAME} v{settings.API_VERSION}")
         if not success:
@@ -170,7 +181,8 @@ async def root():
         version=settings.API_VERSION,
         available_languages=settings.AVAILABLE_LANGUAGES,
         available_voices=settings.AVAILABLE_VOICES,
-        model_loaded=model is not None or TESTING_MODE
+        model_loaded=model is not None or TESTING_MODE,
+        testing_mode=TESTING_MODE
     )
 
 @app.get("/health", response_model=HealthResponse)
@@ -182,7 +194,8 @@ async def health_check():
         model_loaded=model is not None or TESTING_MODE,
         timestamp=datetime.now().isoformat(),
         version=settings.API_VERSION,
-        uptime=system_info.get("uptime")
+        uptime=system_info.get("uptime"),
+        testing_mode=TESTING_MODE
     )
 
 @app.get("/voices", response_model=VoicesResponse)
@@ -278,7 +291,8 @@ async def generate_audio(request: TTSRequest, background_tasks: BackgroundTasks)
             voice=request.voice,
             language=request.language,
             duration=duration,
-            generated_at=datetime.now()
+            generated_at=datetime.now(),
+            testing_mode=TESTING_MODE
         )
         
     except Exception as e:
@@ -289,6 +303,12 @@ async def generate_audio(request: TTSRequest, background_tasks: BackgroundTasks)
             status_code=500, 
             detail=f"Error generating audio: {str(e)}"
         )
+
+# ADD THE MISSING ENDPOINT - This is what you were testing!
+@app.post("/generate-tts", response_model=TTSResponse)
+async def generate_tts(request: TTSRequest, background_tasks: BackgroundTasks):
+    """Generate TTS - Alternative endpoint name"""
+    return await generate_audio(request, background_tasks)
 
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):

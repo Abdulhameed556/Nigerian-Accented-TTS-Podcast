@@ -13,14 +13,16 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip and install build tools
 RUN pip install --upgrade pip setuptools wheel
 
-# Install PyTorch with CPU support first (avoids conflicts)
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install PyTorch first (CPU version for Railway)
 RUN pip install torch==2.1.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cpu
 
-# Install YarnGPT before other dependencies
-RUN pip install git+https://github.com/yarngpt/yarngpt.git
+# Try to install YarnGPT - if it fails, continue without it
+RUN pip install git+https://github.com/yarngpt/yarngpt.git || echo "YarnGPT not available - will run in testing mode"
 
-# Copy requirements and install remaining dependencies
-COPY requirements.txt .
+# Install remaining requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
@@ -30,7 +32,8 @@ COPY . .
 RUN mkdir -p /tmp/audio_files
 
 # Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app /tmp/audio_files
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app /tmp/audio_files
 USER appuser
 
 # Expose port
@@ -40,5 +43,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Start the application
+# Start the application with uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
